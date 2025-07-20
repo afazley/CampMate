@@ -13,7 +13,8 @@
 
         <!-- Campsite List -->
         <Label Text="Nearby Campsites" FontSize="24" />
-        <ListView ItemsSource="{Binding Campsites}">
+        <ListView ItemsSource="{Binding Campsites}"
+          ItemSelected="OnCampsiteSelected">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <TextCell Text="{Binding Name}" Detail="{Binding Location}" />

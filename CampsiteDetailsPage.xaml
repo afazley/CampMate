@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="CampMate.CampsiteDetailsPage"
+             Title="{Binding Name}">
+    <ScrollView>
+        <StackLayout Padding="20" Spacing="15">
+            <Label Text="{Binding Name}" FontSize="24" FontAttributes="Bold" />
+            <Label Text="{Binding Location}" FontSize="18" />
+
+            <Label Text="Amenities:" FontAttributes="Bold" />
+            <Label Text="{Binding HasElectricHookup, StringFormat=• Electric Hookup: {0}}" />
+            <Label Text="{Binding IsPetFriendly, StringFormat=• Pet Friendly: {0}}" />
+            <Label Text="{Binding HasWifi, StringFormat=• WiFi: {0}}" />
+
+            <Button Text="Open in Google Maps" Clicked="OnOpenInMapsClicked"/>
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Maui.Alerts;
 using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Maps;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -53,29 +54,48 @@ namespace CampMate
 
                 foreach (var element in root.elements)
                 {
-                    var campsiteName = element.tags?.ContainsKey("name") == true ? element.tags["name"] : "Unnamed Site";
+                    var tags = element.tags ?? new Dictionary<string, string>();
+
+                    var campsiteName = tags.ContainsKey("name") ? tags["name"] : "Unnamed Site";
                     var campsiteLat = element.lat;
                     var campsiteLon = element.lon;
 
-                    Campsites.Add(new Campsite
+                    var campsite = new Campsite
                     {
                         Name = campsiteName,
                         Location = $"Lat: {campsiteLat}, Lon: {campsiteLon}",
                         Latitude = campsiteLat,
-                        Longitude = campsiteLon
-                    });
+                        Longitude = campsiteLon,
+                        HasElectricHookup = tags.ContainsKey("power_supply") && tags["power_supply"] == "yes",
+                        HasWifi = tags.ContainsKey("internet_access") && tags["internet_access"] == "wlan",
+                        IsPetFriendly = tags.ContainsKey("pets") && tags["pets"] == "yes"
+                    };
 
-                    // Create and add a pin to the map
+                    Campsites.Add(campsite);
+
                     var pin = new Pin
                     {
                         Label = campsiteName,
-                        Address = $"Lat: {campsiteLat}, Lon: {campsiteLon}",
-                        Location = new Location(campsiteLat, campsiteLon), // Maui Maps Location
+                        Address = campsite.Location,
+                        Location = new Location(campsiteLat, campsiteLon),
                         Type = PinType.Place
+                    };
+
+                    pin.MarkerClicked += async (s, args) =>
+                    {
+                        args.HideInfoWindow = true;
+
+                        await Navigation.PushAsync(new CampsiteDetailsPage(campsite));
+
+                        CampsiteMap.MoveToRegion(MapSpan.FromCenterAndRadius(
+                            new Location(campsite.Latitude, campsite.Longitude),
+                            Distance.FromKilometers(2)));
                     };
 
                     CampsiteMap.Pins.Add(pin);
                 }
+
+
             }
             catch (FeatureNotEnabledException)
             {
@@ -160,6 +180,19 @@ namespace CampMate
             }
         }
 
+        private async void OnCampsiteSelected(object sender, SelectedItemChangedEventArgs e)
+        {
+            if (e.SelectedItem is Campsite selected)
+            {
+                await Navigation.PushAsync(new CampsiteDetailsPage(selected));
+
+                CampsiteMap.MoveToRegion(MapSpan.FromCenterAndRadius(
+                    new Location(selected.Latitude, selected.Longitude),
+                    Distance.FromKilometers(2)));
+            }
+
+    ((ListView)sender).SelectedItem = null;
+        }
 
 
 
@@ -171,9 +204,10 @@ namespace CampMate
         public string Location { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
+
         public bool HasElectricHookup { get; set; }
-        public bool IsPetFriendly { get; set; }
         public bool HasWifi { get; set; }
+        public bool IsPetFriendly { get; set; }
     }
 
     public class OverpassResponse
