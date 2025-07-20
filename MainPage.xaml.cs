@@ -1,4 +1,5 @@
-﻿using Microsoft.Maui.Controls;
+﻿using CommunityToolkit.Maui.Alerts;
+using Microsoft.Maui.Controls;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -11,6 +12,7 @@ namespace CampMate
         public MainPage()
         {
             InitializeComponent();
+            Connectivity.ConnectivityChanged += Connectivity_ConnectivityChanged;
             LoadCampsites();
             BindingContext = this;
         }
@@ -19,27 +21,129 @@ namespace CampMate
         {
             try
             {
-                string json = await FileSystem.OpenAppPackageFileAsync("campsites.json")
-                                        .ContinueWith(t => new StreamReader(t.Result).ReadToEnd());
+                // Request location
+                var location = await Geolocation.GetLastKnownLocationAsync();
+                if (location == null)
+                    location = await Geolocation.GetLocationAsync();
 
-                var data = JsonSerializer.Deserialize<List<Campsite>>(json);
-                if (data != null)
+                if (location == null)
                 {
-                    Campsites.Clear();
-                    foreach (var site in data)
-                        Campsites.Add(site);
+                    await DisplayAlert("Location Error", "Unable to determine location.", "OK");
+                    return;
+                }
+
+                double lat = location.Latitude;
+                double lon = location.Longitude;
+
+                // Create bounding box around user (0.5 deg is ~50km)
+                double latMin = lat - 0.25;
+                double latMax = lat + 0.25;
+                double lonMin = lon - 0.25;
+                double lonMax = lon + 0.25;
+
+                string overpassUrl = $"https://overpass-api.de/api/interpreter?data=[out:json];node[\"tourism\"=\"camp_site\"]({latMin},{lonMin},{latMax},{lonMax});out;";
+
+                using HttpClient client = new();
+                string json = await client.GetStringAsync(overpassUrl);
+
+                var root = JsonSerializer.Deserialize<OverpassResponse>(json);
+
+                Campsites.Clear();
+                foreach (var element in root.elements)
+                {
+                    Campsites.Add(new Campsite
+                    {
+                        Name = element.tags?.ContainsKey("name") == true ? element.tags["name"] : "Unnamed Site",
+                        Location = $"Lat: {element.lat}, Lon: {element.lon}",
+                        Latitude = element.lat,
+                        Longitude = element.lon
+                    });
+                }
+            }
+            catch (FeatureNotEnabledException)
+            {
+                await DisplayAlert("Location Disabled", "Location services are not enabled.", "OK");
+            }
+            catch (PermissionException)
+            {
+                await DisplayAlert("Permission Denied", "Location permission not granted.", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Could not fetch campsites: {ex.Message}", "OK");
+            }
+        }
+
+        private async void OnCacheNowClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var firstTen = Campsites.Take(10).ToList();
+                string json = JsonSerializer.Serialize(firstTen);
+
+                string fileName = "cached_campsites.json";
+                string filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+                File.WriteAllText(filePath, json);
+
+                await DisplayAlert("Offline Cache", "First 10 campsites have been cached locally.", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Failed to cache campsites: {ex.Message}", "OK");
+            }
+        }
+
+        private async void Connectivity_ConnectivityChanged(object sender, ConnectivityChangedEventArgs e)
+        {
+            if (e.NetworkAccess != NetworkAccess.Internet)
+            {
+                await CacheFirstTenCampsitesAsync();
+                await Toast.Make("Internet connection lost. Cached campsites for offline use.").Show();
+            }
+        }
+
+        private async Task CacheFirstTenCampsitesAsync()
+        {
+            try
+            {
+                var firstTen = Campsites.Take(10).ToList();
+                string json = JsonSerializer.Serialize(firstTen);
+
+                string fileName = "cached_campsites.json";
+                string filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+                File.WriteAllText(filePath, json);
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Failed to auto-cache campsites: {ex.Message}", "OK");
+            }
+        }
+
+        private async void OnViewCachedClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                string filePath = Path.Combine(FileSystem.AppDataDirectory, "cached_campsites.json");
+                if (File.Exists(filePath))
+                {
+                    string json = await File.ReadAllTextAsync(filePath);
+                    var cachedSites = JsonSerializer.Deserialize<List<Campsite>>(json);
+                    await DisplayAlert("Cache", $"Cached: {cachedSites?.Count} campsites", "OK");
+                }
+                else
+                {
+                    await DisplayAlert("Cache", "No cache file found.", "OK");
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", $"Could not load campsites: {ex.Message}", "OK");
+                await DisplayAlert("Error", ex.Message, "OK");
             }
         }
 
-        private void OnCacheNowClicked(object sender, EventArgs e)
-        {
-            DisplayAlert("Offline Cache", "Nearby campsite data has been cached for offline use.", "OK");
-        }
+
     }
 
     public class Campsite
@@ -52,4 +156,18 @@ namespace CampMate
         public bool IsPetFriendly { get; set; }
         public bool HasWifi { get; set; }
     }
+
+    public class OverpassResponse
+    {
+        public List<OverpassElement> elements { get; set; }
+    }
+
+    public class OverpassElement
+    {
+        public long id { get; set; }
+        public double lat { get; set; }
+        public double lon { get; set; }
+        public Dictionary<string, string> tags { get; set; }
+    }
+
 }
