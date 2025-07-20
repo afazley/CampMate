@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Alerts;
+using Microsoft.Maui.Controls.Maps;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -48,15 +49,32 @@ namespace CampMate
                 var root = JsonSerializer.Deserialize<OverpassResponse>(json);
 
                 Campsites.Clear();
+                CampsiteMap.Pins.Clear();  // Clear existing pins on the map
+
                 foreach (var element in root.elements)
                 {
+                    var campsiteName = element.tags?.ContainsKey("name") == true ? element.tags["name"] : "Unnamed Site";
+                    var campsiteLat = element.lat;
+                    var campsiteLon = element.lon;
+
                     Campsites.Add(new Campsite
                     {
-                        Name = element.tags?.ContainsKey("name") == true ? element.tags["name"] : "Unnamed Site",
-                        Location = $"Lat: {element.lat}, Lon: {element.lon}",
-                        Latitude = element.lat,
-                        Longitude = element.lon
+                        Name = campsiteName,
+                        Location = $"Lat: {campsiteLat}, Lon: {campsiteLon}",
+                        Latitude = campsiteLat,
+                        Longitude = campsiteLon
                     });
+
+                    // Create and add a pin to the map
+                    var pin = new Pin
+                    {
+                        Label = campsiteName,
+                        Address = $"Lat: {campsiteLat}, Lon: {campsiteLon}",
+                        Location = new Location(campsiteLat, campsiteLon), // Maui Maps Location
+                        Type = PinType.Place
+                    };
+
+                    CampsiteMap.Pins.Add(pin);
                 }
             }
             catch (FeatureNotEnabledException)
