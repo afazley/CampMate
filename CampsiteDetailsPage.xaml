@@ -2,16 +2,40 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CampMate.CampsiteDetailsPage"
+             xmlns:local="clr-namespace:CampMate"
              Title="{Binding Name}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <local:BoolToYesNoConverter x:Key="BoolToYesNoConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+
     <ScrollView>
         <StackLayout Padding="20" Spacing="15">
             <Label Text="{Binding Name}" FontSize="24" FontAttributes="Bold" />
             <Label Text="{Binding Location}" FontSize="18" />
 
-            <Label Text="Amenities:" FontAttributes="Bold" />
-            <Label Text="{Binding HasElectricHookup, StringFormat=• Electric Hookup: {0}}" />
-            <Label Text="{Binding IsPetFriendly, StringFormat=• Pet Friendly: {0}}" />
-            <Label Text="{Binding HasWifi, StringFormat=• WiFi: {0}}" />
+
+
+            <Label Text="Details:" FontSize="20" FontAttributes="Bold" />
+
+            <CollectionView ItemsSource="{Binding Tags}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Label Text="{Binding Key, StringFormat='{}{0}: '}" FontAttributes="Bold" />
+                            <Label Text="{Binding Value}" Grid.Column="1" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
 
             <Button Text="Open in Google Maps" Clicked="OnOpenInMapsClicked"/>
         </StackLayout>

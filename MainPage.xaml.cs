@@ -54,11 +54,17 @@ namespace CampMate
 
                 foreach (var element in root.elements)
                 {
-                    var tags = element.tags ?? new Dictionary<string, string>();
-
-                    var campsiteName = tags.ContainsKey("name") ? tags["name"] : "Unnamed Site";
+                    var campsiteName = element.tags?.ContainsKey("name") == true ? element.tags["name"] : "Unnamed Site";
                     var campsiteLat = element.lat;
                     var campsiteLon = element.lon;
+
+                    var tags = element.tags ?? new Dictionary<string, string>();
+
+                    System.Diagnostics.Debug.WriteLine($"Tags for {campsiteName}:");
+                    foreach (var tag in tags)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"{tag.Key} = {tag.Value}");
+                    }
 
                     var campsite = new Campsite
                     {
@@ -66,27 +72,23 @@ namespace CampMate
                         Location = $"Lat: {campsiteLat}, Lon: {campsiteLon}",
                         Latitude = campsiteLat,
                         Longitude = campsiteLon,
-                        HasElectricHookup = tags.ContainsKey("power_supply") && tags["power_supply"] == "yes",
-                        HasWifi = tags.ContainsKey("internet_access") && tags["internet_access"] == "wlan",
-                        IsPetFriendly = tags.ContainsKey("pets") && tags["pets"] == "yes"
+                        Tags = tags
                     };
 
                     Campsites.Add(campsite);
 
                     var pin = new Pin
                     {
-                        Label = campsiteName,
+                        Label = campsite.Name,
                         Address = campsite.Location,
-                        Location = new Location(campsiteLat, campsiteLon),
+                        Location = new Location(campsite.Latitude, campsite.Longitude),
                         Type = PinType.Place
                     };
 
                     pin.MarkerClicked += async (s, args) =>
                     {
                         args.HideInfoWindow = true;
-
                         await Navigation.PushAsync(new CampsiteDetailsPage(campsite));
-
                         CampsiteMap.MoveToRegion(MapSpan.FromCenterAndRadius(
                             new Location(campsite.Latitude, campsite.Longitude),
                             Distance.FromKilometers(2)));
@@ -205,9 +207,7 @@ namespace CampMate
         public double Latitude { get; set; }
         public double Longitude { get; set; }
 
-        public bool HasElectricHookup { get; set; }
-        public bool HasWifi { get; set; }
-        public bool IsPetFriendly { get; set; }
+        public Dictionary<string, string> Tags { get; set; } = new();
     }
 
     public class OverpassResponse
