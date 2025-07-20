@@ -9,6 +9,16 @@ namespace CampMate
     public partial class MainPage : ContentPage
     {
         public ObservableCollection<Campsite> Campsites { get; set; } = new();
+        private bool isBusy;
+        public bool IsBusy
+        {
+            get => isBusy;
+            set
+            {
+                isBusy = value;
+                OnPropertyChanged(nameof(IsBusy));
+            }
+        }
 
         public MainPage()
         {
@@ -16,9 +26,38 @@ namespace CampMate
             Connectivity.ConnectivityChanged += Connectivity_ConnectivityChanged;
             LoadCampsites();
             BindingContext = this;
+            _ = RefreshCampsitesAsync();
+
         }
 
-        private async void LoadCampsites()
+        private async Task RefreshCampsitesAsync()
+        {
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            {
+                await DisplayAlert("Offline", "You're offline. Can't refresh now.", "OK");
+                return;
+            }
+
+            try
+            {
+                IsBusy = true; // Show spinner
+
+                CampsiteMap.Pins.Clear();
+                Campsites.Clear();
+
+                await LoadCampsites();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Could not refresh: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsBusy = false; // Hide spinner
+            }
+        }
+
+        private async Task LoadCampsites()
         {
             try
             {
@@ -113,6 +152,33 @@ namespace CampMate
             }
         }
 
+        private async void OnRefreshClicked(object sender, EventArgs e)
+        {
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            {
+                await DisplayAlert("Offline", "You're offline. Can't refresh now.", "OK");
+                return;
+            }
+
+            try
+            {
+                IsBusy = true; // Show spinner
+
+                CampsiteMap.Pins.Clear();
+                Campsites.Clear();
+
+                await LoadCampsites();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Could not refresh: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsBusy = false; // Hide spinner no matter what
+            }
+        }
+
         private async void OnCacheNowClicked(object sender, EventArgs e)
         {
             try
@@ -191,10 +257,12 @@ namespace CampMate
                 CampsiteMap.MoveToRegion(MapSpan.FromCenterAndRadius(
                     new Location(selected.Latitude, selected.Longitude),
                     Distance.FromKilometers(2)));
-            }
-
-    ((ListView)sender).SelectedItem = null;
+            } 
         }
+
+
+
+
 
 
 

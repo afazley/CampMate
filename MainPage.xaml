@@ -2,29 +2,58 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
-             x:Class="CampMate.MainPage">
-    <StackLayout Padding="20">
+             x:Class="CampMate.MainPage"
+             x:Name="ThisPage"
+             Title="CampMate">
 
-        <!-- Map View -->
-        <maps:Map x:Name="CampsiteMap"
-                  HeightRequest="200"
-                  IsShowingUser="true"
-                  VerticalOptions="Start"/>
+    <Grid>
 
-        <!-- Campsite List -->
-        <Label Text="Nearby Campsites" FontSize="24" />
-        <ListView ItemsSource="{Binding Campsites}"
-          ItemSelected="OnCampsiteSelected">
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <TextCell Text="{Binding Name}" Detail="{Binding Location}" />
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+        <!-- Your main UI -->
+        <VerticalStackLayout Padding="10" Spacing="10">
 
-        <!-- Buttons -->
-        <Button Text="Cache Nearby Campsites" Clicked="OnCacheNowClicked"/>
-        <Button Text="View Cached Campsites" Clicked="OnViewCachedClicked"/>
+            <!-- Refresh Button -->
+            <Button Text="🔄 Refresh Campsites"
+                    Clicked="OnRefreshClicked"
+                    BackgroundColor="LightGray"
+                    TextColor="Black"
+                    HorizontalOptions="Fill"
+                    CornerRadius="10"
+                    HeightRequest="45" />
 
-    </StackLayout>
+            <!-- Map View -->
+            <maps:Map x:Name="CampsiteMap"
+                      HeightRequest="200"
+                      IsShowingUser="true"
+                      VerticalOptions="Start"/>
+
+            <!-- Campsite List -->
+            <Label Text="Nearby Campsites" FontSize="24" />
+            <ListView ItemsSource="{Binding Campsites}"
+                      ItemSelected="OnCampsiteSelected">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextCell Text="{Binding Name}" Detail="{Binding Location}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Other Buttons -->
+            <Button Text="Cache Nearby Campsites" Clicked="OnCacheNowClicked"/>
+            <Button Text="View Cached Campsites" Clicked="OnViewCachedClicked"/>
+
+        </VerticalStackLayout>
+
+        <!-- Spinner overlay -->
+        <ActivityIndicator 
+            x:Name="LoadingIndicator"
+            IsVisible="{Binding IsBusy, Source={x:Reference ThisPage}}"
+            IsRunning="{Binding IsBusy, Source={x:Reference ThisPage}}"
+            Color="DarkGray"
+            VerticalOptions="Center"
+            HorizontalOptions="Center"
+            WidthRequest="60"
+            HeightRequest="60" />
+
+    </Grid>
+
 </ContentPage>
