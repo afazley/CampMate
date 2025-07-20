@@ -1,27 +1,29 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
              x:Class="CampMate.MainPage">
     <StackLayout Padding="20">
-        <Label Text="Nearby Campsites" FontSize="24" />
 
+        <!-- Map View -->
+        <maps:Map x:Name="CampsiteMap"
+                  HeightRequest="200"
+                  IsShowingUser="true"
+                  VerticalOptions="Start"/>
+
+        <!-- Campsite List -->
+        <Label Text="Nearby Campsites" FontSize="24" />
         <ListView ItemsSource="{Binding Campsites}">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <ViewCell>
-                        <StackLayout Padding="10" Orientation="Horizontal" Spacing="10">
-                            <Label Text="🏕️" FontSize="20" VerticalOptions="Center"/>
-                            <StackLayout Orientation="Vertical">
-                                <Label Text="{Binding Name}" TextColor="DarkGreen" FontSize="18" FontAttributes="Bold"/>
-                                <Label Text="{Binding Location}" TextColor="DimGray" FontSize="14"/>
-                            </StackLayout>
-                        </StackLayout>
-                    </ViewCell>
+                    <TextCell Text="{Binding Name}" Detail="{Binding Location}" />
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
 
+        <!-- Buttons -->
+        <Button Text="Cache Nearby Campsites" Clicked="OnCacheNowClicked"/>
         <Button Text="View Cached Campsites" Clicked="OnViewCachedClicked"/>
-        <Button Text="Cache Nearby Campsites" Clicked="OnCacheNowClicked" />
+
     </StackLayout>
 </ContentPage>

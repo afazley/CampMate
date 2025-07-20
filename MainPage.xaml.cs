@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Maui.Alerts;
-using Microsoft.Maui.Controls;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -142,6 +141,8 @@ namespace CampMate
                 await DisplayAlert("Error", ex.Message, "OK");
             }
         }
+
+
 
 
     }
