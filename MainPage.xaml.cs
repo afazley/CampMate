@@ -1,13 +1,39 @@
 ﻿using CommunityToolkit.Maui.Alerts;
 using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Devices.Sensors;
 using Microsoft.Maui.Maps;
 using System.Collections.ObjectModel;
+using System.Net.Http;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Windows.Input;
+
+
+
+
 
 namespace CampMate
 {
+
+
+
     public partial class MainPage : ContentPage
     {
+        public ICommand SuggestionTappedCommand { get; }
+
+
+
+        private readonly HttpClient _httpClient = new HttpClient();
+        private const string GooglePlacesApiKey = "AIzaSyBahXlRuPXZdbQGHuK987bQgnBJZ7ZeEXk"; // Replace with your key
+        private CancellationTokenSource _cts = new();
+ 
+
         public ObservableCollection<Campsite> Campsites { get; set; } = new();
         private bool isBusy;
         public bool IsBusy
@@ -23,11 +49,32 @@ namespace CampMate
         public MainPage()
         {
             InitializeComponent();
-            Connectivity.ConnectivityChanged += Connectivity_ConnectivityChanged;
-            LoadCampsites();
-            BindingContext = this;
-            _ = RefreshCampsitesAsync();
 
+            Connectivity.ConnectivityChanged += Connectivity_ConnectivityChanged;
+
+            LoadCampsites();
+
+            BindingContext = this;
+
+            SuggestionTappedCommand = new Command<object>(async (item) =>
+            {
+                dynamic suggestion = item;
+                string address = suggestion?.Description;
+
+                if (!string.IsNullOrEmpty(address))
+                {
+                    AddressSuggestions.IsVisible = false;
+                    AddressEntry.Text = address;
+
+                    var (lat, lng) = await GetCoordinatesFromAddress(address);
+                    if (lat != 0 && lng != 0)
+                    {
+                        await LoadCampsites(lat, lng);
+                    }
+                }
+            });
+
+            _ = RefreshCampsitesAsync();
         }
 
         private async Task RefreshCampsitesAsync()
@@ -152,6 +199,36 @@ namespace CampMate
             }
         }
 
+        private async Task LoadCampsites(double latitude, double longitude)
+        {
+            try
+            {
+                var location = await Geolocation.GetLastKnownLocationAsync();
+                if (location == null)
+                {
+                    location = await Geolocation.GetLocationAsync(new GeolocationRequest
+                    {
+                        DesiredAccuracy = GeolocationAccuracy.Medium,
+                        Timeout = TimeSpan.FromSeconds(10)
+                    });
+                }
+
+                if (location != null)
+                {
+                    await LoadCampsites(location.Latitude, location.Longitude);
+                }
+                else
+                {
+                    await DisplayAlert("Error", "Could not get your location.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"Failed to get location: {ex.Message}", "OK");
+            }
+        }
+
+
         private async void OnRefreshClicked(object sender, EventArgs e)
         {
             if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
@@ -260,13 +337,84 @@ namespace CampMate
             } 
         }
 
+        private async void OnUseGpsClicked(object sender, EventArgs e)
+        {
+            await LoadCampsites(); // Your existing location logic
+        }
 
+        private void OnChangeAddressClicked(object sender, EventArgs e)
+        {
+            AddressEntry.IsVisible = true;
+            AddressSuggestions.IsVisible = true;
+            AddressEntry.Focus();
+        }
 
+        private async void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(e.NewTextValue)) return;
 
+            try
+            {
+                var uri = $"https://maps.googleapis.com/maps/api/place/autocomplete/json?input={Uri.EscapeDataString(e.NewTextValue)}&key={GooglePlacesApiKey}";
+                var response = await _httpClient.GetFromJsonAsync<GooglePlaceAutocompleteResponse>(uri, cancellationToken: _cts.Token);
+
+                if (response?.Predictions != null)
+                {
+                    AddressSuggestions.ItemsSource = response.Predictions;
+                    AddressSuggestions.IsVisible = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Autocomplete error: {ex.Message}");
+            }
+        }
+
+        private async void OnSuggestionSelected(object sender, SelectedItemChangedEventArgs e)
+        {
+            if (e.SelectedItem is string selectedAddress)
+            {
+                AddressSuggestions.IsVisible = false;
+                AddressEntry.Text = selectedAddress;
+
+                // Fetch coordinates from the address
+                var (lat, lng) = await GetCoordinatesFromAddress(selectedAddress);
+
+                if (lat != 0 && lng != 0)
+                {
+                    await LoadCampsites(lat, lng);
+                }
+
+                // Clear the selection
+                ((ListView)sender).SelectedItem = null;
+            }
+        }
+
+        private async Task<(double, double)> GetCoordinatesFromAddress(string address)
+        {
+            var apiKey = "AIzaSyBahXlRuPXZdbQGHuK987bQgnBJZ7ZeEXk";
+            var requestUri = $"https://maps.googleapis.com/maps/api/geocode/json?address={Uri.EscapeDataString(address)}&key={apiKey}";
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.GetStringAsync(requestUri);
+            var result = JsonSerializer.Deserialize<JsonElement>(response);
+
+            if (result.TryGetProperty("results", out var results) && results.GetArrayLength() > 0)
+            {
+                var location = results[0].GetProperty("geometry").GetProperty("location");
+                var lat = location.GetProperty("lat").GetDouble();
+                var lng = location.GetProperty("lng").GetDouble();
+                return (lat, lng);
+            }
+
+            return (0, 0); // fallback
+        }
 
 
 
     }
+
+
 
     public class Campsite
     {
@@ -290,5 +438,50 @@ namespace CampMate
         public double lon { get; set; }
         public Dictionary<string, string> tags { get; set; }
     }
+
+    public class GooglePlaceAutocompleteResponse
+    {
+        [JsonPropertyName("predictions")]
+        public List<Prediction> Predictions { get; set; }
+    }
+
+    public class Prediction
+    {
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("place_id")]
+        public string PlaceId { get; set; }
+
+        public override string ToString() => Description;
+    }
+
+    public class GooglePlaceDetailsResponse
+    {
+        [JsonPropertyName("result")]
+        public PlaceResult Result { get; set; }
+    }
+
+    public class PlaceResult
+    {
+        [JsonPropertyName("geometry")]
+        public Geometry Geometry { get; set; }
+    }
+
+    public class Geometry
+    {
+        [JsonPropertyName("location")]
+        public LatLng Location { get; set; }
+    }
+
+    public class LatLng
+    {
+        [JsonPropertyName("lat")]
+        public double Lat { get; set; }
+
+        [JsonPropertyName("lng")]
+        public double Lng { get; set; }
+    }
+
 
 }
